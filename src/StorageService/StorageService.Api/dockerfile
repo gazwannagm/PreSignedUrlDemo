@@ -1,0 +1,34 @@
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+WORKDIR /app
+EXPOSE 8080
+
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+
+# Copy all project files
+COPY ["StorageService.Domain/StorageService.Domain.csproj", "StorageService.Domain/"]
+COPY ["StorageService.Application/StorageService.Application.csproj", "StorageService.Application/"]
+COPY ["StorageService.Infrastructure/StorageService.Infrastructure.csproj", "StorageService.Infrastructure/"]
+COPY ["StorageService.Api/StorageService.Api.csproj", "StorageService.Api/"]
+
+# Restore dependencies
+RUN dotnet restore "StorageService.Api/StorageService.Api.csproj"
+
+# Copy source code
+COPY . .
+
+# Build
+WORKDIR "/src/StorageService.Api"
+RUN dotnet build "StorageService.Api.csproj" -c Release -o /app/build
+
+FROM build AS publish
+RUN dotnet publish "StorageService.Api.csproj" -c Release -o /app/publish /p:UseAppHost=false
+
+FROM base AS final
+WORKDIR /app
+COPY --from=publish /app/publish .
+
+# Install curl for healthcheck
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
+ENTRYPOINT ["dotnet", "StorageService.Api.dll"]

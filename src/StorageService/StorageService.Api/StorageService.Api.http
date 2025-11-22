@@ -1,0 +1,6 @@
+@StorageService_Api_HostAddress = http://localhost:5179
+###
+GET {{StorageService_Api_HostAddress}}/health/
+Accept: application/json
+
+###

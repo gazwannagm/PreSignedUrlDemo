@@ -1,0 +1,34 @@
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+WORKDIR /app
+EXPOSE 8080
+
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+
+# Copy all project files
+COPY ["AppService.Domain/AppService.Domain.csproj", "AppService.Domain/"]
+COPY ["AppService.Application/AppService.Application.csproj", "AppService.Application/"]
+COPY ["AppService.Infrastructure/AppService.Infrastructure.csproj", "AppService.Infrastructure/"]
+COPY ["AppService.Api/AppService.Api.csproj", "AppService.Api/"]
+
+# Restore dependencies
+RUN dotnet restore "AppService.Api/AppService.Api.csproj"
+
+# Copy source code
+COPY . .
+
+# Build
+WORKDIR "/src/AppService.Api"
+RUN dotnet build "AppService.Api.csproj" -c Release -o /app/build
+
+FROM build AS publish
+RUN dotnet publish "AppService.Api.csproj" -c Release -o /app/publish /p:UseAppHost=false
+
+FROM base AS final
+WORKDIR /app
+COPY --from=publish /app/publish .
+
+# Install curl for healthcheck
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
+ENTRYPOINT ["dotnet", "AppService.Api.dll"]
